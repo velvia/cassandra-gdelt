@@ -10,8 +10,9 @@ import com.websudos.phantom.Implicits._
 import com.websudos.phantom.zookeeper.{SimpleCassandraConnector, DefaultCassandraManager}
 import java.io.{BufferedReader, FileReader}
 import org.joda.time.DateTime
-import scala.concurrent.{Await, Future}
+import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 // I think I can only bear to fill in 20 columns right now.  :-p
@@ -117,6 +118,13 @@ object GdeltRecord extends GdeltRecord with LocalConnector {
     }
     batch.future()
   }
+
+  def elapsed[A](f: => A): (A, Double) = {
+    val startTime = System.currentTimeMillis
+    val ret = f
+    val elapsed = (System.currentTimeMillis - startTime) / 1000.0
+    (ret, elapsed)
+  }
 }
 
 /**
@@ -150,15 +158,36 @@ object GdeltCaseClassImporter extends App with LocalConnector {
 
   // Parse each line into a case class
   println("Ingesting, each dot equals 1000 records...")
-  val startTime = System.currentTimeMillis
   var recordCount = 0L
-  lineIter.map(toGdeltCaseClass)
-          .grouped(1000)
-          .foreach { records =>
-            recordCount += records.length
-            Await.result(GdeltRecord.insertRecords(records), 10 seconds)
-            print(".")
-          }
-  val elapsed = (System.currentTimeMillis - startTime) / 1000.0
+  val (_, elapsed) = GdeltRecord.elapsed {
+    lineIter.map(toGdeltCaseClass)
+            .grouped(1000)
+            .foreach { records =>
+              recordCount += records.length
+              Await.result(GdeltRecord.insertRecords(records), 10 seconds)
+              print(".")
+            }
+  }
   println(s"Done in ${elapsed} secs, ${recordCount / elapsed} records/sec")
+}
+
+/**
+ * Run this to time queries against the imported records
+ */
+object GdeltCaseClassQuery extends App with LocalConnector {
+  println("Querying every column (full export)...")
+  val (result, elapsed) = GdeltRecord.elapsed {
+    val f = GdeltRecord.select.
+              fetchEnumerator run (Iteratee.fold(0) { (acc, elt: Any) => acc + 1 })
+    Await.result(f, 5000 seconds)
+  }
+  println(s".... got count of $result in $elapsed seconds")
+
+  println("Querying just monthYear column out of 20...")
+  val (result2, elapsed2) = GdeltRecord.elapsed {
+    val f = GdeltRecord.select(_.monthYear).
+              fetchEnumerator run (Iteratee.fold(0) { (acc, elt: Any) => acc + 1 })
+    Await.result(f, 5000 seconds)
+  }
+  println(s".... got count of $result2 in $elapsed2 seconds")
 }
