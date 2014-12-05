@@ -19,5 +19,7 @@ Space taken up by all records: 1.8GB
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
 | Ingestion from CSV  | 503 s    | 8020 rec/s    |
-| Read every column   | 259.7 s  | 15545 rec/s   |
-| Read 1 col (monthYear) | 231.6 s | 17435 rec/s |
+| Read every column   | 332 s    | 12159 rec/s   |
+| Read 1 col (monthYear) | 276 s | 14643 rec/s   |
+
+(Average of two runs)
