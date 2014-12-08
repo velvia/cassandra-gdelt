@@ -2,6 +2,10 @@
  * Represents each Gdelt record as a Scala case class.
  * One physical row in C* per Gdelt record, with separate columns for each column.
  *
+ * Note: This is not a workable model for a large number of tables/datasets, or
+ * for a large number of columns.
+ * - Cassandra uses memory for each table, and most people use very few tables;
+ * - Defining all the columns is really tedious, as you can see here
  */
 
 import com.datastax.driver.core.Row

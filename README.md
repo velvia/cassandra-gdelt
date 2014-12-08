@@ -23,3 +23,19 @@ Space taken up by all records: 1.8GB
 | Read 1 col (monthYear) | 276 s | 14643 rec/s   |
 
 (Average of two runs)
+
+### Columnar Layout
+
+```sql
+CREATE TABLE data (
+  dataset text,
+  version int,
+  shard int,
+  columnname text,
+  rowid int,
+  bytes blob,
+  PRIMARY KEY ((dataset, version, shard), columnname, rowid)
+)
+```
+
+This layout places values of the same column from different rows together, and also serializes multiple row values into one cell.  There is no compression yet.
