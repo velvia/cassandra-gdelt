@@ -61,8 +61,16 @@ object DataTableRecord extends DataTableRecord with LocalConnector {
                                 .value(_.rowId,   rowId)
     val batch = UnloggedBatchStatement()
     columnsBytes.foreach { case (columnName, bytes) =>
-      batch.add(commonStatement.value(_.columnName, columnName)
-                               .value(_.bytes, bytes))
+      // Sucks, it seems that reusing a partially prepared query doesn't work.
+      // Issue filed: https://github.com/websudos/phantom/issues/166
+      // batch.add(commonStatement.value(_.columnName, columnName)
+      //                          .value(_.bytes, bytes))
+      batch.add(insert.value(_.dataset, dataset)
+                       .value(_.version, version)
+                       .value(_.shard,   shard)
+                       .value(_.rowId,   rowId)
+                       .value(_.columnName, columnName)
+                       .value(_.bytes, bytes))
     }
     batch.future()
   }
