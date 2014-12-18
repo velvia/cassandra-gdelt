@@ -15,3 +15,7 @@ libraryDependencies ++= Seq(
   "com.websudos"         %% "phantom-dsl"       % phantomVersion,
   "com.websudos"         %% "phantom-zookeeper" % phantomVersion
 )
+
+resolvers += "Pellucid Bintray" at "http://dl.bintray.com/pellucid/maven"
+
+libraryDependencies += "com.pellucid" %% "framian" % "0.3.3"

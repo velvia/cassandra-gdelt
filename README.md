@@ -2,6 +2,8 @@
 
 Just a simple test of different Cassandra layouts and their impact on the query / IO speed of the GDELT dataset.
 
+NOTE: Some source code from Google's [FlatBuffers](http://google.github.io/flatbuffers/index.html) project is copied over, since they don't distribute jars and the files are very small.  All code in `src/main/java/com/google` is Copyright Google.
+
 ### Setup
 
 GDELT dataset, 1979-1984, 4,037,539 records.  The original data is 55 columns but this one is truncated to the first 20 columns.
