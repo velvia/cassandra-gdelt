@@ -96,6 +96,10 @@ object GdeltRecord extends GdeltRecord with LocalConnector {
   override val tableName = "gdelt"
 
   def insertRecords(records: Seq[GdeltModel]): Future[ResultSet] = {
+    // NOTE: Apparently this is an anti-pattern, because a BATCH statement
+    // forces a single coordinator to handle everything, whereas if they were
+    // individual writes, they could go to the right node, skipping a hop.
+    // However this test is done on localhost, so it probably doesn't matter as much.
     val batch = UnloggedBatchStatement()
     records.foreach { record =>
       batch.add(insert.value(_.globalEventId, record.globalEventId)

@@ -26,7 +26,7 @@ Space taken up by all records: 1.8GB
 
 (Average of two runs)
 
-### Columnar Layout
+### Columnar Layout (FlatBuffers, No Compression)
 
 ```sql
 CREATE TABLE data (
@@ -41,3 +41,13 @@ CREATE TABLE data (
 ```
 
 This layout places values of the same column from different rows together, and also serializes multiple row values into one cell.  There is no compression yet.
+
+Space taken up by records:  166MB .... !!!
+
+| What                | Time     | Records/sec   |
+| :------------------ | :------- | :------------ |
+| Ingestion from CSV  | 56.2 s   | 71886 rec/s   |
+| Read every column   |  s    |    rec/s   |
+| Read 1 col (monthYear) |  s |    rec/s   |
+
+The speedup and compactness is shocking.  Roughly 10x faster and 10x less space with no compression!  I'll have to run some verification tests to make sure that this is not BS, but a casual inspection of the data using CqlSH seems like it's legit.  Also, FlatBuffers leaves lots of zeroes in the binary output, so there is plenty of room for improvement.

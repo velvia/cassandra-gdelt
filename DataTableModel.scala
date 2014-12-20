@@ -55,22 +55,19 @@ object DataTableRecord extends DataTableRecord with LocalConnector {
    */
   def insertOneRow(dataset: String, version: Int, shard: Int, rowId: Int,
                    columnsBytes: Map[String, ByteBuffer]): Future[ResultSet] = {
-    val commonStatement = insert.value(_.dataset, dataset)
-                                .value(_.version, version)
-                                .value(_.shard,   shard)
-                                .value(_.rowId,   rowId)
+    // NOTE: This is actually a good use of Unlogged Batch, because all of the inserts
+    // are to the same partition key, so they will get collapsed down into one insert
+    // for efficiency.
     val batch = UnloggedBatchStatement()
     columnsBytes.foreach { case (columnName, bytes) =>
       // Sucks, it seems that reusing a partially prepared query doesn't work.
       // Issue filed: https://github.com/websudos/phantom/issues/166
-      // batch.add(commonStatement.value(_.columnName, columnName)
-      //                          .value(_.bytes, bytes))
       batch.add(insert.value(_.dataset, dataset)
-                       .value(_.version, version)
-                       .value(_.shard,   shard)
-                       .value(_.rowId,   rowId)
-                       .value(_.columnName, columnName)
-                       .value(_.bytes, bytes))
+                      .value(_.version, version)
+                      .value(_.shard,   shard)
+                      .value(_.rowId,   rowId)
+                      .value(_.columnName, columnName)
+                      .value(_.bytes, bytes))
     }
     batch.future()
   }

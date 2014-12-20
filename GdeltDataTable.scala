@@ -33,6 +33,9 @@ private object Classes {
  * Class to help transpose a set of rows of type R to ByteBuffer-backed columns.
  * @param schema a Seq of IngestColumn describing the [[ColumnBuilder]] used for each column
  * @param ingestSupport something to convert from a row R to specific types
+ *
+ * TODO: Add stats about # of rows, chunks/buffers encoded, bytes encoded, # NA's etc.
+ * Write them to a Cass table.
  */
 class RowToColumnBuilder[R](schema: Seq[IngestColumn], ingestSupport: RowIngestSupport[R]) {
   val ingestFuncs: Seq[(R, Int) => Unit] = schema.map { case IngestColumn(_, builder) =>
