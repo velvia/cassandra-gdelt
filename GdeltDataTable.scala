@@ -183,3 +183,51 @@ object GdeltDataTableImporter extends App with LocalConnector {
     }
   }
 }
+
+object GdeltDataTableQuery extends App with LocalConnector {
+  import scala.concurrent.ExecutionContext.Implicits.global
+  import collection.mutable.HashMap
+  import collection.mutable.{Map => MMap}
+
+  case class RecordCounter(maxRowIdMap: MMap[Int, Int] = HashMap.empty.withDefaultValue(0),
+                           colCount: MMap[String, Int] = HashMap.empty.withDefaultValue(0),
+                           bytesRead: MMap[String, Long] = HashMap.empty.withDefaultValue(0L)) {
+    def addRowIdForShard(shard: Int, rowId: Int) {
+      maxRowIdMap(shard) = Math.max(maxRowIdMap(shard), rowId)
+    }
+
+    def addColCount(column: String) { colCount(column) += 1 }
+
+    def addColBytes(column: String, bytes: Long) { bytesRead(column) += bytes }
+  }
+
+  // NOTE: we are cheating since I know beforehand there are 40 shards.
+  // Gather some statistics to make sure we are indeed reading every row and shard
+  println("Querying every column (full export)...")
+  val counter = RecordCounter()
+  val (result, elapsed) = GdeltRecord.elapsed {
+    (0 to 40).foldLeft(0) { (acc, shard) =>
+      val f = DataTableRecord.readAllColumns("gdelt", 0, shard) run (
+                Iteratee.fold(0) { (acc, x: DataTableRecord.ColRowBytes) =>
+                  counter.addRowIdForShard(shard, x._2)
+                  counter.addColCount(x._1)
+                  counter.addColBytes(x._1, x._3.remaining.toLong)
+                acc + 1 }
+              )
+      acc + Await.result(f, 5000 seconds)
+    }
+  }
+  println(s".... got count of $result in $elapsed seconds")
+  println("Shard and column count stats: " + counter)
+
+  println("Querying just monthYear column out of 20...")
+  val (result2, elapsed2) = GdeltRecord.elapsed {
+    (0 to 40).foldLeft(0) { (acc, shard) =>
+      val f = DataTableRecord.readSelectColumns("gdelt", 0, shard, List("monthYear")) run (
+                Iteratee.fold(0) { (acc, _) => acc + 1 } )
+      acc + Await.result(f, 5000 seconds)
+    }
+  }
+  println(s".... got count of $result2 in $elapsed2 seconds")
+  println("All done!")
+}

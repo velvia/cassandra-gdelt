@@ -47,7 +47,12 @@ Space taken up by records:  166MB .... !!!
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
 | Ingestion from CSV  | 56.2 s   | 71886 rec/s   |
-| Read every column   |  s    |    rec/s   |
-| Read 1 col (monthYear) |  s |    rec/s   |
+| Read every column   |  6.3 s   |  640k rec/s   |
+| Read 1 col (monthYear) | 0.20 s | **20 million rec/s**   |
 
-The speedup and compactness is shocking.  Roughly 10x faster and 10x less space with no compression!  I'll have to run some verification tests to make sure that this is not BS, but a casual inspection of the data using CqlSH seems like it's legit.  Also, FlatBuffers leaves lots of zeroes in the binary output, so there is plenty of room for improvement.
+The speedup and compactness is shocking.
+* On ingest - roughly 10x faster and 10x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
+* On reads - more than 50x faster for reads of all columns, and over 1000x faster for read of a single column
+
+I'll have to run some verification tests to make sure that this is not BS, but a casual inspection of the data using CqlSH seems like it's legit.  Also, FlatBuffers leaves lots of zeroes in the binary output, so there is plenty of room for improvement.
+- (update 1) `GdeltDataTableQuery` compiles stats which show that every column is being read, the # of shards, chunks, and bytes seem to all make sense.  Evidently LZ4 is compressing data to roughly 1/4 of the total size of all the bytebuffers.
