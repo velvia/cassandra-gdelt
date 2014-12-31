@@ -220,14 +220,38 @@ object GdeltDataTableQuery extends App with LocalConnector {
   println(s".... got count of $result in $elapsed seconds")
   println("Shard and column count stats: " + counter)
 
-  println("Querying just monthYear column out of 20...")
+  import VectorExtractorBuilder._
+
+  println("Querying just monthYear column out of 20, counting # of elements...")
   val (result2, elapsed2) = GdeltRecord.elapsed {
     (0 to 40).foldLeft(0) { (acc, shard) =>
       val f = DataTableRecord.readSelectColumns("gdelt", 0, shard, List("monthYear")) run (
-                Iteratee.fold(0) { (acc, _) => acc + 1 } )
+                Iteratee.fold(0) { (acc, x: DataTableRecord.ColRowBytes) =>
+                  val col = ColumnParser.parseAsSimpleColumn[Int](x._3)
+                  var count = 0
+                  col.foreach { monthYear => count += 1 }
+                  acc + count
+                } )
       acc + Await.result(f, 5000 seconds)
     }
   }
   println(s".... got count of $result2 in $elapsed2 seconds")
+
+  println("Querying just monthYear column out of 20, top K of elements...")
+  val (result3, elapsed3) = GdeltRecord.elapsed {
+    val myCount = HashMap.empty[Int, Int].withDefaultValue(0)
+    (0 to 40).foreach { shard =>
+      val f = DataTableRecord.readSelectColumns("gdelt", 0, shard, List("monthYear")) run (
+                Iteratee.fold(0) { (acc, x: DataTableRecord.ColRowBytes) =>
+                  val col = ColumnParser.parseAsSimpleColumn[Int](x._3)
+                  col.foreach { monthYear => myCount(monthYear) += 1 }
+                  0
+                } )
+      Await.result(f, 5000 seconds)
+    }
+    myCount.toSeq.sortBy(_._2).reverse.take(10)
+  }
+  println(s".... got count of $result3 in $elapsed3 seconds")
+
   println("All done!")
 }
