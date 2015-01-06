@@ -63,6 +63,15 @@ Is this for real?  Gathering stats of the data being read shows that it is:
 
 Also, FlatBuffers leaves lots of zeroes in the binary output, so there is plenty of room for improvement, plus the code for parsing the binary FlatBuffers has not been optimized at all.... plus LZ4 and different C* side compression schemes and their effects too.
 
+### Cap'n Proto
+
+This is not yet working due to bugs in capnproto-java.  Notes for the setup:
+1. Build and install Cap'n Proto Schema Compiler
+2. Clone and build the java repo using [these instructions](https://dwrensha.github.io/capnproto-java/index.html)
+3. To build the schema, do something like
+
+        capnp compile -o../../capnproto-java/capnpc-java -I../../capnproto-java/compiler/src/main/schema column_storage.capnp
+
 ### For Additional Investigation
 
 Right now the above comparison is just for C*, LZ4 C* disk compression, using the Phantom client.  Much more testing and performance evaluation would be needed to compare against, for example, Parquet, and to isolate the effects of
