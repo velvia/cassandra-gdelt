@@ -12,6 +12,7 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   "com.github.marklister" %% "product-collections" % "1.2.0",
+  "org.capnproto"         % "runtime"           % "0.1.0",
   "com.websudos"         %% "phantom-dsl"       % phantomVersion,
   "com.websudos"         %% "phantom-zookeeper" % phantomVersion
 )
