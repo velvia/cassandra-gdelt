@@ -175,6 +175,8 @@ object GdeltDataTableImporter extends App with LocalConnector {
   }
   println(s"Done in ${elapsed} secs, ${recordCount / elapsed} records/sec")
   println(s"shard = $shard   rowId = $rowId")
+  println(s"# of SimpleColumns: ${SimpleConverters.count}")
+  println(s"# of DictEncodingColumns: ${DictEncodingConverters.count}")
 
   private def analyzeData() {
     println("\n---")

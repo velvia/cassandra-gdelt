@@ -18,7 +18,7 @@ This is a simple layout with one primary key, so one physical row per record.  O
 
 LZ4 disk compression is enabled.
 
-Space taken up by all records: 1.8GB
+Space taken up by all records: 900MB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
@@ -54,7 +54,7 @@ Space taken up by records:  166MB .... !!!
 | Read 1 col (monthYear) | 0.63 s | **6.43 million rec/s**   |
 
 The speedup and compactness is shocking.
-* On ingest - roughly 10x faster and 10x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
+* On ingest - roughly 10x faster and 5x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
 * On reads - more than 50x faster for reads of all columns, and over 400x faster for read of a single column
     - (Actually, 2/3rds of the single column read time is my first cut code for iterating over elements of the binary data structure, which probably can be significantly optimized)
 
@@ -63,6 +63,24 @@ Is this for real?  Gathering stats of the data being read shows that it is:
 - For the monthYear col, exactly 4037539 elements are being read back, and a top K of the monthYear values matches exactly with values derived from the original source CSV file
 
 Also, FlatBuffers leaves lots of zeroes in the binary output, so there is plenty of room for improvement, plus the code for parsing the binary FlatBuffers has not been optimized at all.... plus LZ4 and different C* side compression schemes and their effects too.
+
+### Columnar Layout (FlatBuffers, Dictionary Compressed)
+
+Same as above but with dictionary encoding enabled for about 75% of column chunks
+(auto-detection with a 50% cardinality threshold for enabling dictionary encoding)
+
+Space taken up by records:  57MB .... !!!   Holy S***
+(LZ4 Compressed SSTable size; uncompressed actual ByteBuffers are 290.9 MB)
+
+| What                | Time     | Records/sec   |
+| :------------------ | :------- | :------------ |
+| Ingestion from CSV  | 46.7 s   | 86376 rec/s   |
+| Read every column   |  3.7 s   |  1.09 million rec/s   |
+| Read 1 col (monthYear) | 0.63 s | **6.43 million rec/s**   |
+
+So, dictionary encoding saves a huge amount of space, cutting the actual storage
+space to one-third of the columnar one, both uncompressed and compressed.
+(Interesting that the compression ratio seems constant)
 
 ### Cap'n Proto
 
