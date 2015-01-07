@@ -219,6 +219,7 @@ object GdeltDataTableQuery extends App with LocalConnector {
   }
   println(s".... got count of $result in $elapsed seconds")
   println("Shard and column count stats: " + counter)
+  println("Total bytes read: " + counter.bytesRead.values.sum)
 
   import VectorExtractorBuilder._
 

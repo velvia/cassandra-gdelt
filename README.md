@@ -45,6 +45,7 @@ CREATE TABLE data (
 This layout places values of the same column from different rows together, and also serializes multiple row values into one cell.  There is no compression yet.
 
 Space taken up by records:  166MB .... !!!
+(LZ4 Compressed SSTable size; uncompressed actual ByteBuffers are 931MB)
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
