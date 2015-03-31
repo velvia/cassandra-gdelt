@@ -4,6 +4,8 @@ Just a simple test of different Cassandra layouts and their impact on the query 
 
 NOTE: Some source code from Google's [FlatBuffers](http://google.github.io/flatbuffers/index.html) project is copied over, since they don't distribute jars and the files are very small.  All code in `src/main/java/com/google` is Copyright Google.
 
+## NOTE: This is just PoC code.  Please see the [filo](http://github.com/velvia/filo) and [FiloDB](http://github.com/velvia/FiloDB) projects if you are interested in working code.
+
 ### Setup
 
 GDELT dataset, 1979-1984, 4,037,539 records.  The original data is 55 columns but this one is truncated to the first 20 columns.
