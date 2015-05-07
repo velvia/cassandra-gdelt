@@ -24,11 +24,25 @@ Space taken up by all records: 900MB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
-| Ingestion from CSV  | 503 s    | 8020 rec/s    |
-| Read every column   | 332 s    | 12159 rec/s   |
-| Read 1 col (monthYear) | 276 s | 14643 rec/s   |
+| Ingestion from CSV  | 380 s    | 10429 rec/s    |
+| Read every column   | 203 s   | 19889 rec/s   |
+| Read 1 col (monthYear) | 163 s | 24770 rec/s   |
 
 (Average of two runs)
+
+### Benchmark Results - GdeltCaseClass2
+
+This is an improvement on GdeltCaseClass, with use of both a partition key which is a simple grouping of the primary keys, and a clustering key, to effect wide rows for faster linear reads from disk.  In addition, the names of the columns have been shortened to use up less disk space.
+
+Space taken up by all records: 576MB
+
+| What                | Time     | Records/sec   |
+| :------------------ | :------- | :------------ |
+| Ingestion from CSV  | 886 s    | 4558 rec/s    |
+| Read every column   | 524 s    | 7700 rec/s   |
+| Read 1 col (monthYear) | 493 s | 8173 rec/s   |
+
+What is surprising is how much slower the use of the clustering key makes it.  Perhaps it is due to the need to store the clustering key along with the column name, although this is not bourne out by the space check.
 
 ### Columnar Layout (FlatBuffers, No Compression)
 
@@ -57,7 +71,7 @@ Space taken up by records:  166MB .... !!!
 
 The speedup and compactness is shocking.
 * On ingest - roughly 10x faster and 5x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
-* On reads - more than 50x faster for reads of all columns, and over 400x faster for read of a single column
+* On reads - 32x to 83x faster for reads of all columns, and 260 - 800x faster for read of a single column
     - (Actually, 2/3rds of the single column read time is my first cut code for iterating over elements of the binary data structure, which probably can be significantly optimized)
 
 Is this for real?  Gathering stats of the data being read shows that it is:
