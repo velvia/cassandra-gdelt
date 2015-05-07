@@ -113,3 +113,5 @@ Right now the above comparison is just for C*, LZ4 C* disk compression, using th
 - C* itself, and the disk compression scheme used
 - Effects of the Phantom client
 - FlatBuffers vs Capt'n Proto
+
+Another good dataset to test against is NYC Taxi Trip data: http://www.andresmh.com/nyctaxitrips/
