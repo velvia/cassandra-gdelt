@@ -114,4 +114,4 @@ Right now the above comparison is just for C*, LZ4 C* disk compression, using th
 - Effects of the Phantom client
 - FlatBuffers vs Capt'n Proto
 
-Another good dataset to test against is NYC Taxi Trip data: http://www.andresmh.com/nyctaxitrips/
+Another good dataset to test against is NYC Taxi Trip data: http://www.andresmh.com/nyctaxitrips/.   There are two helper scripts: `split_csv.sh` helps break up a big CSV into smaller CSVs with header intact, and `socrata_pointify.sh` adds a point column from lat and long columns.
