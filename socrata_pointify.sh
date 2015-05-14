@@ -7,7 +7,7 @@
 #
 # Uses the csv command line utils https://csvkit.readthedocs.org/en/0.9.1/#
 
-# set -ex
+set -e
 
 longitude_col=$1
 latitude_col=$2
