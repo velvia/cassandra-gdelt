@@ -2,8 +2,6 @@
 
 Just a simple test of different Cassandra layouts and their impact on the query / IO speed of the GDELT dataset.
 
-NOTE: Some source code from Google's [FlatBuffers](http://google.github.io/flatbuffers/index.html) project is copied over, since they don't distribute jars and the files are very small.  All code in `src/main/java/com/google` is Copyright Google.
-
 ## NOTE: This is just PoC code.  Please see the [filo](http://github.com/velvia/filo) and [FiloDB](http://github.com/velvia/FiloDB) projects if you are interested in working code.
 
 ### Setup
@@ -67,12 +65,12 @@ Space taken up by records:  166MB .... !!!
 | :------------------ | :------- | :------------ |
 | Ingestion from CSV  | 56.2 s   | 71886 rec/s   |
 | Read every column   |  6.3 s   |  640k rec/s   |
-| Read 1 col (monthYear) | 0.63 s | **6.43 million rec/s**   |
+| Read 1 col (monthYear) | 0.23 s | **17.4 million rec/s**   |
 
 The speedup and compactness is shocking.
 * On ingest - roughly 10x faster and 5x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
-* On reads - 32x to 83x faster for reads of all columns, and 260 - 800x faster for read of a single column
-    - (Actually, 2/3rds of the single column read time is my first cut code for iterating over elements of the binary data structure, which probably can be significantly optimized)
+* On reads - 32x to 83x faster for reads of all columns, and 700 - 2100x faster for read of a single column
+    - Granted, the speedup is for parsing an integer column, which is the most compact and benefits the most from efficient I/O; parsing a string column will not be quite as fast (though dictionary-encoded columns are very fast in deserialization)
 
 Is this for real?  Gathering stats of the data being read shows that it is:
 - `GdeltDataTableQuery` compiles stats which show that every column is being read, the # of shards, chunks, and bytes seem to all make sense.  Evidently LZ4 is compressing data to roughly 1/4 of the total size of all the bytebuffers.  This debunks the theory that perhaps not all the data is being read.
@@ -91,8 +89,8 @@ Space taken up by records:  57MB .... !!!   Holy S***
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
 | Ingestion from CSV  | 46.7 s   | 86376 rec/s   |
-| Read every column   |  3.7 s   |  1.09 million rec/s   |
-| Read 1 col (monthYear) | 0.63 s | **6.43 million rec/s**   |
+| Read every column   |  3.37 s  |  1.20 million rec/s   |
+| Read 1 col (monthYear) | 0.23 s | **17.4 million rec/s**   |
 
 So, dictionary encoding saves a huge amount of space, cutting the actual storage
 space to one-third of the columnar one, both uncompressed and compressed.
