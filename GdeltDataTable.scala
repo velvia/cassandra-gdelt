@@ -2,117 +2,35 @@ import com.github.marklister.collections.io._
 import java.io.{BufferedReader, FileReader}
 import java.nio.ByteBuffer
 import org.joda.time.DateTime
+import org.velvia.filo._
 import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
-case class IngestColumn(name: String, builder: ColumnBuilder[_])
-
-/*  Must be implemented for proper building of columns from rows
- */
-trait RowIngestSupport[R] {
-  def getString(row: R, columnNo: Int): Option[String]
-  def getInt(row: R, columnNo: Int): Option[Int]
-  def getLong(row: R, columnNo: Int): Option[Long]
-  def getDouble(row: R, columnNo: Int): Option[Double]
-}
-
-// To help matching against the ClassTag in the ColumnBuilder
-private object Classes {
-  val Byte = java.lang.Byte.TYPE
-  val Short = java.lang.Short.TYPE
-  val Int = java.lang.Integer.TYPE
-  val Long = java.lang.Long.TYPE
-  val Float = java.lang.Float.TYPE
-  val Double = java.lang.Double.TYPE
-  val String = classOf[String]
-}
-
-/**
- * Class to help transpose a set of rows of type R to ByteBuffer-backed columns.
- * @param schema a Seq of IngestColumn describing the [[ColumnBuilder]] used for each column
- * @param ingestSupport something to convert from a row R to specific types
- *
- * TODO: Add stats about # of rows, chunks/buffers encoded, bytes encoded, # NA's etc.
- * Write them to a Cass table.
- */
-class RowToColumnBuilder[R](schema: Seq[IngestColumn], ingestSupport: RowIngestSupport[R]) {
-  val ingestFuncs: Seq[(R, Int) => Unit] = schema.map { case IngestColumn(_, builder) =>
-    builder.classTagA.runtimeClass match {
-      case Classes.Int    =>
-        (r: R, c: Int) => builder.asInstanceOf[IntColumnBuilder].addOption(ingestSupport.getInt(r, c))
-      case Classes.Long   =>
-        (r: R, c: Int) => builder.asInstanceOf[LongColumnBuilder].addOption(ingestSupport.getLong(r, c))
-      case Classes.Double =>
-        (r: R, c: Int) => builder.asInstanceOf[DoubleColumnBuilder].addOption(ingestSupport.getDouble(r, c))
-      case Classes.String =>
-        (r: R, c: Int) => builder.asInstanceOf[StringColumnBuilder].addOption(ingestSupport.getString(r, c))
-      case x              => throw new RuntimeException("Unsupported input type " + x)
-    }
-  }
-
-  /**
-   * Resets the ColumnBuilders.  Call this before the next batch of rows to transpose.
-   * @return {[type]} [description]
-   */
-  def reset() {
-    schema foreach { _.builder.reset() }
-  }
-
-  /**
-   * Adds a single row of data to each of the ColumnBuilders.
-   * @param row the row of data to transpose.  Each column will be added to the right Builders.
-   */
-  def addRow(row: R) {
-    ingestFuncs.zipWithIndex.foreach { case (func, i) =>
-      func(row, i)
-    }
-  }
-
-  /**
-   * Converts the contents of the [[ColumnBuilder]]s to ByteBuffers for writing or transmission.
-   */
-  def convertToBytes(): Map[String, ByteBuffer] = {
-    schema.map { case IngestColumn(columnName, builder) =>
-      val bytes = builder.classTagA.runtimeClass match {
-        case Classes.Int    =>
-          BufferConverter.convertToBuffer(builder.asInstanceOf[IntColumnBuilder])
-        case Classes.Long   =>
-          BufferConverter.convertToBuffer(builder.asInstanceOf[LongColumnBuilder])
-        case Classes.Double =>
-          BufferConverter.convertToBuffer(builder.asInstanceOf[DoubleColumnBuilder])
-        case Classes.String =>
-          BufferConverter.convertToBuffer(builder.asInstanceOf[StringColumnBuilder])
-        case x              => throw new RuntimeException("Unsupported input type " + x)
-      }
-      (columnName, bytes)
-    }.toMap
-  }
-}
 
 object GdeltSchema {
   val schema = Seq(
-    IngestColumn("globalEventId", new StringColumnBuilder),
-    IngestColumn("sqlDate",       new LongColumnBuilder),    // really this is DateTime, converted to epoch
-    IngestColumn("monthYear",     new IntColumnBuilder),
-    IngestColumn("year",          new IntColumnBuilder),
-    IngestColumn("fractionDate",  new DoubleColumnBuilder),
-    IngestColumn("actor1Code",    new StringColumnBuilder),
-    IngestColumn("actor1Name",    new StringColumnBuilder),
-    IngestColumn("actor1CountryCode",    new StringColumnBuilder),
-    IngestColumn("actor1KnownGroupCode", new StringColumnBuilder),
-    IngestColumn("actor1EthnicCode",    new StringColumnBuilder),
-    IngestColumn("actor1Religion1Code",    new StringColumnBuilder),
-    IngestColumn("actor1Religion2Code",    new StringColumnBuilder),
-    IngestColumn("actor1Type1Code",    new StringColumnBuilder),
-    IngestColumn("actor1Type2Code",    new StringColumnBuilder),
-    IngestColumn("actor1Type3Code",    new StringColumnBuilder),
-    IngestColumn("actor2Code",    new StringColumnBuilder),
-    IngestColumn("actor2Name",    new StringColumnBuilder),
-    IngestColumn("actor2CountryCode",    new StringColumnBuilder),
-    IngestColumn("actor2KnownGroupCode", new StringColumnBuilder),
-    IngestColumn("actor2EthnicCode",    new StringColumnBuilder)
+    IngestColumn("globalEventId", classOf[String]),
+    IngestColumn("sqlDate",       classOf[Long]),    // really this is DateTime, converted to epoch
+    IngestColumn("monthYear",     classOf[Int]),
+    IngestColumn("year",          classOf[Int]),
+    IngestColumn("fractionDate",  classOf[Double]),
+    IngestColumn("actor1Code",    classOf[String]),
+    IngestColumn("actor1Name",    classOf[String]),
+    IngestColumn("actor1CountryCode",    classOf[String]),
+    IngestColumn("actor1KnownGroupCode", classOf[String]),
+    IngestColumn("actor1EthnicCode",    classOf[String]),
+    IngestColumn("actor1Religion1Code",    classOf[String]),
+    IngestColumn("actor1Religion2Code",    classOf[String]),
+    IngestColumn("actor1Type1Code",    classOf[String]),
+    IngestColumn("actor1Type2Code",    classOf[String]),
+    IngestColumn("actor1Type3Code",    classOf[String]),
+    IngestColumn("actor2Code",    classOf[String]),
+    IngestColumn("actor2Name",    classOf[String]),
+    IngestColumn("actor2CountryCode",    classOf[String]),
+    IngestColumn("actor2KnownGroupCode", classOf[String]),
+    IngestColumn("actor2EthnicCode",    classOf[String])
   )
 }
 
@@ -175,12 +93,12 @@ object GdeltDataTableImporter extends App with LocalConnector {
   }
   println(s"Done in ${elapsed} secs, ${recordCount / elapsed} records/sec")
   println(s"shard = $shard   rowId = $rowId")
-  println(s"# of SimpleColumns: ${SimpleConverters.count}")
-  println(s"# of DictEncodingColumns: ${DictEncodingConverters.count}")
+  println(s"# of SimpleColumns: ${SimpleEncoders.count}")
+  println(s"# of DictEncodingColumns: ${DictEncodingEncoders.count}")
 
   private def analyzeData() {
     println("\n---")
-    GdeltSchema.schema.foreach { case IngestColumn(name, builder) =>
+    GdeltSchema.schema.map(_.name).zip(builder.builders).foreach { case (name, builder) =>
       println(s"  name: $name \t#NAbits: ${builder.naMask.size} \tcardinality: ${builder.data.toSet.size}")
     }
   }
@@ -223,14 +141,14 @@ object GdeltDataTableQuery extends App with LocalConnector {
   println("Shard and column count stats: " + counter)
   println("Total bytes read: " + counter.bytesRead.values.sum)
 
-  import VectorExtractorBuilder._
+  import ColumnParser._
 
   println("Querying just monthYear column out of 20, counting # of elements...")
   val (result2, elapsed2) = GdeltRecord.elapsed {
     (0 to 40).foldLeft(0) { (acc, shard) =>
       val f = DataTableRecord.readSelectColumns("gdelt", 0, shard, List("monthYear")) run (
                 Iteratee.fold(0) { (acc, x: DataTableRecord.ColRowBytes) =>
-                  val col = ColumnParser.parseAsSimpleColumn[Int](x._3)
+                  val col = ColumnParser.parse[Int](x._3)
                   var count = 0
                   col.foreach { monthYear => count += 1 }
                   acc + count
@@ -246,7 +164,7 @@ object GdeltDataTableQuery extends App with LocalConnector {
     (0 to 40).foreach { shard =>
       val f = DataTableRecord.readSelectColumns("gdelt", 0, shard, List("monthYear")) run (
                 Iteratee.fold(0) { (acc, x: DataTableRecord.ColRowBytes) =>
-                  val col = ColumnParser.parseAsSimpleColumn[Int](x._3)
+                  val col = ColumnParser.parse[Int](x._3)
                   col.foreach { monthYear => myCount(monthYear) += 1 }
                   0
                 } )
