@@ -9,8 +9,10 @@ Just a simple test of different Cassandra layouts and their impact on the query 
 GDELT dataset, 1979-1984, 4,037,539 records.  The original data is 55 columns but this one is truncated to the first 20 columns.
 
 - Local MacBook Pro,  2.3GHz Core i7, 16GB RAM, SSD
-- Cassandra 2.0.9, installed locally with one node
+- Cassandra 2.0.9, installed locally with one node using CCM
 - Benchmark run using `sbt run`
+
+Query benchmarks were run after a compaction cycle.
 
 ### Benchmark Results - GdeltCaseClass
 
@@ -32,15 +34,15 @@ Space taken up by all records: 900MB
 
 This is an improvement on GdeltCaseClass, with use of both a partition key which is a simple grouping of the primary keys, and a clustering key, to effect wide rows for faster linear reads from disk.  In addition, the names of the columns have been shortened to use up less disk space.
 
-Space taken up by all records: 576MB
+Space taken up by all records: 326MB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
 | Ingestion from CSV  | 886 s    | 4558 rec/s    |
-| Read every column   | 524 s    | 7700 rec/s   |
-| Read 1 col (monthYear) | 493 s | 8173 rec/s   |
+| Read every column   | 320 s    | 12600 rec/s   |
+| Read 1 col (monthYear) | 298 s | 13542 rec/s   |
 
-What is surprising is how much slower the use of the clustering key makes it.  Perhaps it is due to the need to store the clustering key along with the column name, although this is not bourne out by the space check.
+What is surprising is that wide rows is slower.   It seems to compress better, but perhaps Cassandra is able to only read the necessary column in the narrow case, but in the wide case it has to scan the entire row.
 
 ### Columnar Layout (FlatBuffers, No Compression)
 
@@ -69,7 +71,7 @@ Space taken up by records:  166MB .... !!!
 
 The speedup and compactness is shocking.
 * On ingest - roughly 10x faster and 5x less space with no compression!  (No dictionary and columnar compression that is - but LZ4 C* disk compression.  The encoding has lots of 0's in it, which appears to LZ4 compress well.) 
-* On reads - 32x to 83x faster for reads of all columns, and 700 - 2100x faster for read of a single column
+* On reads - 32x to 51x faster for reads of all columns, and 700 - 1300x faster for read of a single column
     - Granted, the speedup is for parsing an integer column, which is the most compact and benefits the most from efficient I/O; parsing a string column will not be quite as fast (though dictionary-encoded columns are very fast in deserialization)
 
 Is this for real?  Gathering stats of the data being read shows that it is:
