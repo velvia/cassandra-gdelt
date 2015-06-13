@@ -6,11 +6,13 @@ Just a simple test of different Cassandra layouts and their impact on the query 
 
 ### Setup
 
-GDELT dataset, 1979-1984, 4,037,539 records.  The original data is 55 columns but this one is truncated to the first 20 columns.
+GDELT dataset, 1979-1984, 4,037,539 records, 60 columns.
 
 - Local MacBook Pro,  2.3GHz Core i7, 16GB RAM, SSD
-- Cassandra 2.0.9, installed locally with one node using CCM
+- Cassandra 2.1.6, installed locally with one node using CCM
 - Benchmark run using `sbt run`
+
+NOTE: if you run this benchmark with C* 2.0.x, `GdeltCaseClass2` ingestion may crash C*.
 
 Query benchmarks were run after a compaction cycle.
 
@@ -20,11 +22,11 @@ This is a simple layout with one primary key, so one physical row per record.  O
 
 LZ4 disk compression is enabled.
 
-Space taken up by all records: 900MB
+Space taken up by all records: 2.7GB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
-| Ingestion from CSV  | 380 s    | 10429 rec/s    |
+| Ingestion from CSV  | 1927 s   | 2091 rec/s    |
 | Read every column   | 203 s   | 19889 rec/s   |
 | Read 1 col (monthYear) | 163 s | 24770 rec/s   |
 
@@ -38,7 +40,7 @@ Space taken up by all records: 326MB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
-| Ingestion from CSV  | 886 s    | 4558 rec/s    |
+| Ingestion from CSV  | 3897 s   | 1034 rec/s    |
 | Read every column   | 320 s    | 12600 rec/s   |
 | Read 1 col (monthYear) | 298 s | 13542 rec/s   |
 

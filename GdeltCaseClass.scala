@@ -62,7 +62,7 @@ case class GeoInfo(geoType: Option[String],
                    featureID: Option[String],
                    fullLocation: Option[String])
 
-trait GdeltRecordBase extends CassandraTable[GdeltRecord, GdeltModel] {
+trait GdeltRecordBase[G <: CassandraTable[G, GdeltModel]] extends CassandraTable[G, GdeltModel] {
   // Cols 0-4
   object sqlDate extends DateTimeColumn(this)
   object monthYear extends OptionalIntColumn(this)
@@ -172,7 +172,7 @@ trait GdeltRecordBase extends CassandraTable[GdeltRecord, GdeltModel] {
                )
 }
 
-sealed class GdeltRecord extends GdeltRecordBase {
+sealed class GdeltRecord extends GdeltRecordBase[GdeltRecord] {
   object globalEventId extends StringColumn(this) with PartitionKey[String]
 
   override def fromRow(row: Row): GdeltModel =

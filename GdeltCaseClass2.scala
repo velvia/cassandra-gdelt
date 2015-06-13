@@ -11,7 +11,7 @@
  */
 
 import com.datastax.driver.core.Row
-import com.github.marklister.collections.io._
+import com.opencsv.CSVReader
 import com.websudos.phantom.Implicits._
 import com.websudos.phantom.zookeeper.{SimpleCassandraConnector, DefaultCassandraManager}
 import java.io.{BufferedReader, FileReader}
@@ -21,106 +21,92 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
-// I think I can only bear to fill in 20 columns right now.  :-p
-case class GdeltModel2(globalEventId: String,
-                      sqlDate: DateTime,
-                      monthYear: Option[Int],
-                      year: Option[Int],
-                      fractionDate: Option[Double],    // fractional year, like 1984.989
-                      actor1Code: Option[String],
-                      actor1Name: Option[String],
-                      actor1CountryCode: Option[String],
-                      actor1KnownGroupCode: Option[String],
-                      actor1EthnicCode: Option[String],
-                      actor1Religion1Code: Option[String],
-                      actor1Religion2Code: Option[String],
-                      actor1Type1Code: Option[String],
-                      actor1Type2Code: Option[String],
-                      actor1Type3Code: Option[String],
-                      actor2Code: Option[String],
-                      actor2Name: Option[String],
-                      actor2CountryCode: Option[String],
-                      actor2KnownGroupCode: Option[String],
-                      actor2EthnicCode: Option[String]
-                      )
-
-sealed class GdeltRecord2 extends CassandraTable[GdeltRecord2, GdeltModel2] {
+sealed class GdeltRecord2 extends GdeltRecordBase[GdeltRecord2] {
   object idPrefix extends StringColumn(this) with PartitionKey[String]
   object globalEventId extends StringColumn(this) with PrimaryKey[String]
-  object sqlDate extends DateTimeColumn(this)
-  object monthYear extends OptionalIntColumn(this)
-  object year extends OptionalIntColumn(this)
-  object fractionDate extends OptionalDoubleColumn(this)
-  object a1C extends OptionalStringColumn(this)
-  object a1N extends OptionalStringColumn(this)
-  object a1CC extends OptionalStringColumn(this)
-  object a1KG extends OptionalStringColumn(this)
-  object a1EC extends OptionalStringColumn(this)
-  object a1R1C extends OptionalStringColumn(this)
-  object a1R2C extends OptionalStringColumn(this)
-  object a1T1 extends OptionalStringColumn(this)
-  object a1T2 extends OptionalStringColumn(this)
-  object a1T3 extends OptionalStringColumn(this)
-  object actor2Code extends OptionalStringColumn(this)
-  object actor2Name extends OptionalStringColumn(this)
-  object a2CC extends OptionalStringColumn(this)
-  object a2KG extends OptionalStringColumn(this)
-  object a2EC extends OptionalStringColumn(this)
 
-  override def fromRow(row: Row): GdeltModel2 =
-    GdeltModel2(globalEventId(row),
-               sqlDate(row),
-               monthYear(row),
-               year(row),
-               fractionDate(row),
-               a1C(row),
-               a1N(row),
-               a1CC(row),
-               a1KG(row),
-               a1EC(row),
-               a1R1C(row),
-               a1R2C(row),
-               a1T1(row),
-               a1T2(row),
-               a1T3(row),
-               actor2Code(row),
-               actor2Name(row),
-               a2CC(row),
-               a2KG(row),
-               a2EC(row))
+  override def fromRow(row: Row): GdeltModel =
+    super.fromRow(row).copy(globalEventId = globalEventId(row))
 }
 
 object GdeltRecord2 extends GdeltRecord2 with LocalConnector {
   override val tableName = "gdelt2"
 
-  def insertRecords(records: Seq[GdeltModel2]): Future[ResultSet] = {
+  def insertRecords(records: Seq[GdeltModel]): Future[ResultSet] = {
     // NOTE: Apparently this is an anti-pattern, because a BATCH statement
     // forces a single coordinator to handle everything, whereas if they were
     // individual writes, they could go to the right node, skipping a hop.
     // However this test is done on localhost, so it probably doesn't matter as much.
     val batch = UnloggedBatchStatement()
     records.foreach { record =>
+      // Wish didn't have to copy and paste this from GdeltCaseClass
       batch.add(insert.value(_.idPrefix, (record.globalEventId.toLong / 10000).toString)
                       .value(_.globalEventId, record.globalEventId)
                       .value(_.sqlDate,       record.sqlDate)
                       .value(_.monthYear,     record.monthYear)
                       .value(_.year,          record.year)
                       .value(_.fractionDate,  record.fractionDate)
-                      .value(_.a1C,           record.actor1Code)
-                      .value(_.a1N,           record.actor1Name)
-                      .value(_.a1CC,          record.actor1CountryCode)
-                      .value(_.a1KG,          record.actor1KnownGroupCode)
-                      .value(_.a1EC,          record.actor1EthnicCode)
-                      .value(_.a1R1C,         record.actor1Religion1Code)
-                      .value(_.a1R2C,         record.actor1Religion2Code)
-                      .value(_.a1T1,          record.actor1Type1Code)
-                      .value(_.a1T2,          record.actor1Type2Code)
-                      .value(_.a1T3,          record.actor1Type3Code)
-                      .value(_.actor2Code,    record.actor2Code)
-                      .value(_.actor2Name,    record.actor2Name)
-                      .value(_.a2CC,          record.actor2CountryCode)
-                      .value(_.a2KG,          record.actor2KnownGroupCode)
-                      .value(_.a2EC,          record.actor2EthnicCode)
+
+                      .value(_.a1Code,        record.actor1.code)
+                      .value(_.a1Name,        record.actor1.name)
+                      .value(_.a1CountryCode, record.actor1.countryCode)
+                      .value(_.a1KnownGroupCode, record.actor1.knownGroupCode)
+                      .value(_.a1EthnicCode,  record.actor1.ethnicCode)
+                      .value(_.a1Religion1Code, record.actor1.rel1Code)
+                      .value(_.a1Religion2Code, record.actor1.rel2Code)
+                      .value(_.a1Type1Code,   record.actor1.type1Code)
+                      .value(_.a1Type2Code,   record.actor1.type2Code)
+                      .value(_.a1Type3Code,   record.actor1.type3Code)
+
+                      .value(_.a2Code,        record.actor2.code)
+                      .value(_.a2Name,        record.actor2.name)
+                      .value(_.a2CountryCode, record.actor2.countryCode)
+                      .value(_.a2KnownGroupCode, record.actor2.knownGroupCode)
+                      .value(_.a2EthnicCode,  record.actor2.ethnicCode)
+                      .value(_.a2Religion1Code, record.actor2.rel1Code)
+                      .value(_.a2Religion2Code, record.actor2.rel2Code)
+                      .value(_.a2Type1Code,   record.actor2.type1Code)
+                      .value(_.a2Type2Code,   record.actor2.type2Code)
+                      .value(_.a2Type3Code,   record.actor2.type3Code)
+
+                      .value(_.isRootEvent,   record.isRootEvent)
+                      .value(_.eventCode,     record.eventCode)
+                      .value(_.eventBaseCode, record.eventBaseCode)
+                      .value(_.eventRootCode, record.eventRootCode)
+                      .value(_.quadClass,     record.quadClass)
+                      .value(_.goldsteinScale, record.goldsteinScale)
+                      .value(_.numMentions,   record.numMentions)
+                      .value(_.numSources,    record.numSources)
+                      .value(_.numArticles,   record.numArticles)
+                      .value(_.avgTone,       record.avgTone)
+                      .value(_.dateAdded,     record.dateAdded)
+
+                      .value(_.a1geoType,     record.actor1geo.geoType)
+                      .value(_.a1fullName,    record.actor1geo.fullName)
+                      .value(_.a1gcountryCode, record.actor1geo.countryCode)
+                      .value(_.a1adm1Code,    record.actor1geo.adm1Code)
+                      .value(_.a1lat,         record.actor1geo.lat)
+                      .value(_.a1long,        record.actor1geo.long)
+                      .value(_.a1featureID,   record.actor1geo.featureID)
+                      .value(_.a1fullLocation, record.actor1geo.fullLocation)
+
+                      .value(_.a2geoType,     record.actor2geo.geoType)
+                      .value(_.a2fullName,    record.actor2geo.fullName)
+                      .value(_.a2gcountryCode, record.actor2geo.countryCode)
+                      .value(_.a2adm1Code,    record.actor2geo.adm1Code)
+                      .value(_.a2lat,         record.actor2geo.lat)
+                      .value(_.a2long,        record.actor2geo.long)
+                      .value(_.a2featureID,   record.actor2geo.featureID)
+                      .value(_.a2fullLocation, record.actor2geo.fullLocation)
+
+                      .value(_.actgeoType,     record.actionGeo.geoType)
+                      .value(_.actfullName,    record.actionGeo.fullName)
+                      .value(_.actgcountryCode, record.actionGeo.countryCode)
+                      .value(_.actadm1Code,    record.actionGeo.adm1Code)
+                      .value(_.actlat,         record.actionGeo.lat)
+                      .value(_.actlong,        record.actionGeo.long)
+                      .value(_.actfeatureID,   record.actionGeo.featureID)
+                      .value(_.actfullLocation, record.actionGeo.fullLocation)
                 )
     }
     batch.future()
@@ -154,21 +140,18 @@ object GdeltCaseClass2Importer extends App with LocalConnector {
     sys.exit(0)
   }
 
-  val reader = new BufferedReader(new FileReader(gdeltFilePath))
-  val lineIter = CsvParser[String, DateTime, Option[Int], Option[Int], Option[Double],
-                           Option[String], Option[String], Option[String], Option[String], Option[String],
-                           Option[String], Option[String], Option[String], Option[String], Option[String],
-                           Option[String], Option[String], Option[String], Option[String], Option[String]].
-                   iterator(reader, hasHeader = true)
+  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), ',')
 
-  def toGdeltCaseClass = (GdeltModel2.apply _).tupled
+  // Skip over header
+  reader.readNext
+
+  val gdeltIter = new GdeltReader(reader)
 
   // Parse each line into a case class
   println("Ingesting, each dot equals 1000 records...")
   var recordCount = 0L
   val (_, elapsed) = GdeltRecord2.elapsed {
-    lineIter.map(toGdeltCaseClass)
-            .grouped(1000)
+    gdeltIter.grouped(1000)
             .foreach { records =>
               recordCount += records.length
               Await.result(GdeltRecord2.insertRecords(records), 10 seconds)
