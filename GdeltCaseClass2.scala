@@ -44,7 +44,7 @@ case class GdeltModel2(globalEventId: String,
                       actor2EthnicCode: Option[String]
                       )
 
-sealed class GdeltRecord2 extends CassandraTable[GdeltRecord2, GdeltModel] {
+sealed class GdeltRecord2 extends CassandraTable[GdeltRecord2, GdeltModel2] {
   object idPrefix extends StringColumn(this) with PartitionKey[String]
   object globalEventId extends StringColumn(this) with PrimaryKey[String]
   object sqlDate extends DateTimeColumn(this)
@@ -67,8 +67,8 @@ sealed class GdeltRecord2 extends CassandraTable[GdeltRecord2, GdeltModel] {
   object a2KG extends OptionalStringColumn(this)
   object a2EC extends OptionalStringColumn(this)
 
-  override def fromRow(row: Row): GdeltModel =
-    GdeltModel(globalEventId(row),
+  override def fromRow(row: Row): GdeltModel2 =
+    GdeltModel2(globalEventId(row),
                sqlDate(row),
                monthYear(row),
                year(row),
@@ -93,7 +93,7 @@ sealed class GdeltRecord2 extends CassandraTable[GdeltRecord2, GdeltModel] {
 object GdeltRecord2 extends GdeltRecord2 with LocalConnector {
   override val tableName = "gdelt2"
 
-  def insertRecords(records: Seq[GdeltModel]): Future[ResultSet] = {
+  def insertRecords(records: Seq[GdeltModel2]): Future[ResultSet] = {
     // NOTE: Apparently this is an anti-pattern, because a BATCH statement
     // forces a single coordinator to handle everything, whereas if they were
     // individual writes, they could go to the right node, skipping a hop.
@@ -161,7 +161,7 @@ object GdeltCaseClass2Importer extends App with LocalConnector {
                            Option[String], Option[String], Option[String], Option[String], Option[String]].
                    iterator(reader, hasHeader = true)
 
-  def toGdeltCaseClass = (GdeltModel.apply _).tupled
+  def toGdeltCaseClass = (GdeltModel2.apply _).tupled
 
   // Parse each line into a case class
   println("Ingesting, each dot equals 1000 records...")
