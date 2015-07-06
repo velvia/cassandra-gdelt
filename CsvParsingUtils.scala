@@ -1,4 +1,3 @@
-import com.github.marklister.collections.io.GeneralConverter
 import com.opencsv.CSVReader
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
@@ -6,14 +5,6 @@ import scala.util.Try
 
 // Unfortunately had to keep the old stuff around
 object CsvParsingUtils {
-  implicit object OptionalStringConv extends GeneralConverter[Option[String]] {
-    def convert(x: String) = convertOptStr(x)
-  }
-
-  implicit object DateTimeConv extends GeneralConverter[DateTime] {
-    def convert(x: String): DateTime = convertDT(x)
-  }
-
   def convertOptStr(x: String): Option[String] = if (x.isEmpty) None else Some(x)
 
   val formatter = DateTimeFormat.forPattern("dd/mm/yy hh:mm:ss aa")
@@ -80,4 +71,13 @@ class GdeltReader(reader: CSVReader) extends Iterator[GdeltModel] {
                convertActorGeo(curLine, 49, 59)
               )
   }
+}
+
+class LineReader(reader: CSVReader) extends Iterator[Array[String]] {
+  var curLine: Array[String] = null
+  def hasNext: Boolean = {
+    curLine = reader.readNext
+    curLine != null
+  }
+  def next = curLine
 }

@@ -1,4 +1,4 @@
-import com.github.marklister.collections.io._
+import com.opencsv.CSVReader
 import java.io.{BufferedReader, FileReader}
 import java.nio.ByteBuffer
 import org.joda.time.DateTime
@@ -12,41 +12,76 @@ import scala.util.Try
 object GdeltSchema {
   val schema = Seq(
     IngestColumn("globalEventId", classOf[String]),
-    IngestColumn("sqlDate",       classOf[Long]),    // really this is DateTime, converted to epoch
+    IngestColumn("sqlDate",       classOf[String]),
     IngestColumn("monthYear",     classOf[Int]),
     IngestColumn("year",          classOf[Int]),
     IngestColumn("fractionDate",  classOf[Double]),
-    IngestColumn("actor1Code",    classOf[String]),
-    IngestColumn("actor1Name",    classOf[String]),
-    IngestColumn("actor1CountryCode",    classOf[String]),
-    IngestColumn("actor1KnownGroupCode", classOf[String]),
-    IngestColumn("actor1EthnicCode",    classOf[String]),
-    IngestColumn("actor1Religion1Code",    classOf[String]),
-    IngestColumn("actor1Religion2Code",    classOf[String]),
-    IngestColumn("actor1Type1Code",    classOf[String]),
-    IngestColumn("actor1Type2Code",    classOf[String]),
-    IngestColumn("actor1Type3Code",    classOf[String]),
-    IngestColumn("actor2Code",    classOf[String]),
-    IngestColumn("actor2Name",    classOf[String]),
-    IngestColumn("actor2CountryCode",    classOf[String]),
-    IngestColumn("actor2KnownGroupCode", classOf[String]),
-    IngestColumn("actor2EthnicCode",    classOf[String])
-  )
-}
+    IngestColumn("a1Code",    classOf[String]),
+    IngestColumn("a1Name",    classOf[String]),
+    IngestColumn("a1CountryCode",    classOf[String]),
+    IngestColumn("a1KnownGroupCode", classOf[String]),
+    IngestColumn("a1EthnicCode",    classOf[String]),
+    IngestColumn("a1Religion1Code",    classOf[String]),
+    IngestColumn("a1Religion2Code",    classOf[String]),
+    IngestColumn("a1Type1Code",    classOf[String]),
+    IngestColumn("a1Type2Code",    classOf[String]),
+    IngestColumn("a1Type3Code",    classOf[String]),
+    IngestColumn("a2Code",    classOf[String]),
+    IngestColumn("a2Name",    classOf[String]),
+    IngestColumn("a2CountryCode",    classOf[String]),
+    IngestColumn("a2KnownGroupCode", classOf[String]),
+    IngestColumn("a2EthnicCode",    classOf[String]),
+    IngestColumn("a2Religion1Code",  classOf[String]),
+    IngestColumn("a2Religion2Code",  classOf[String]),
+    IngestColumn("a2Type1Code",  classOf[String]),
+    IngestColumn("a2Type2Code",  classOf[String]),
+    IngestColumn("a2Type3Code",  classOf[String]),
 
-object TupleRowIngestSupport extends RowIngestSupport[Product] {
-  type R = Product
-  def getString(row: R, columnNo: Int): Option[String] =
-    row.productElement(columnNo).asInstanceOf[Option[String]]
-  def getInt(row: R, columnNo: Int): Option[Int] =
-    row.productElement(columnNo).asInstanceOf[Option[Int]]
-  // The only Long column is the Date column which needs to be converted
-  def getLong(row: R, columnNo: Int): Option[Long] =
-    row.productElement(columnNo).asInstanceOf[Option[String]].flatMap { str =>
-      Try(CsvParsingUtils.DateTimeConv.convert(str).getMillis).toOption
-    }
-  def getDouble(row: R, columnNo: Int): Option[Double] =
-    row.productElement(columnNo).asInstanceOf[Option[Double]]
+    // Cols 25-34
+    IngestColumn("isRootEvent",  classOf[Int]),
+    IngestColumn("eventCode",  classOf[String]),
+    IngestColumn("eventBaseCode",  classOf[String]),
+    IngestColumn("eventRootCode",  classOf[String]),
+    IngestColumn("quadClass",  classOf[Int]),
+    IngestColumn("goldsteinScale",  classOf[Double]),
+    IngestColumn("numMentions",  classOf[Int]),
+    IngestColumn("numSources",  classOf[Int]),
+    IngestColumn("numArticles",  classOf[Int]),
+    IngestColumn("avgTone",  classOf[Double]),
+
+    // Cols 35-41
+    IngestColumn("a1geoType",  classOf[String]),
+    IngestColumn("a1fullName",  classOf[String]),
+    IngestColumn("a1gcountryCode",  classOf[String]),
+    IngestColumn("a1adm1Code",  classOf[String]),
+    IngestColumn("a1lat",  classOf[Double]),
+    IngestColumn("a1long",  classOf[Double]),
+    IngestColumn("a1featureID",  classOf[String]),
+
+    // Cols 42-48
+    IngestColumn("a2geoType",  classOf[String]),
+    IngestColumn("a2fullName",  classOf[String]),
+    IngestColumn("a2gcountryCode",  classOf[String]),
+    IngestColumn("a2adm1Code",  classOf[String]),
+    IngestColumn("a2lat",  classOf[Double]),
+    IngestColumn("a2long",  classOf[Double]),
+    IngestColumn("a2featureID",  classOf[String]),
+
+    // Cols 49-55
+    IngestColumn("actgeoType",  classOf[String]),
+    IngestColumn("actfullName",  classOf[String]),
+    IngestColumn("actgcountryCode",  classOf[String]),
+    IngestColumn("actadm1Code",  classOf[String]),
+    IngestColumn("actlat",  classOf[Double]),
+    IngestColumn("actlong",  classOf[Double]),
+    IngestColumn("actfeatureID",  classOf[String]),
+
+    // Cols 56-59
+    IngestColumn("dateAdded",  classOf[String]),
+    IngestColumn("a1fullLocation",  classOf[String]),
+    IngestColumn("a2fullLocation",  classOf[String]),
+    IngestColumn("actfullLocation",  classOf[String])
+  )
 }
 
 /**
@@ -60,16 +95,16 @@ object GdeltDataTableImporter extends App with LocalConnector {
     sys.exit(0)
   }
 
-  val reader = new BufferedReader(new FileReader(gdeltFilePath))
-  val lineIter = CsvParser[Option[String], Option[String], Option[Int], Option[Int], Option[Double],
-                           Option[String], Option[String], Option[String], Option[String], Option[String],
-                           Option[String], Option[String], Option[String], Option[String], Option[String],
-                           Option[String], Option[String], Option[String], Option[String], Option[String]].
-                   iterator(reader, hasHeader = true)
+  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), ',')
+
+  // Skip over header
+  reader.readNext
+
+  val lineIter = new LineReader(reader)
 
   // Parse each line into a case class
   println("Ingesting, each dot equals 1000 records...")
-  val builder = new RowToColumnBuilder(GdeltSchema.schema, TupleRowIngestSupport)
+  val builder = new RowToColumnBuilder(GdeltSchema.schema, ArrayStringRowSupport)
   var recordCount = 0L
   var rowId = 0
   var shard = 0
