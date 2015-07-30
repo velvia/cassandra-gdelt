@@ -37,6 +37,7 @@ object CsvParsingUtils {
            )
 
   def make60long(in: Array[String]): Array[String] = {
+    if (in == null) return null
     if (in.size >= 60) {
       in
     } else {
