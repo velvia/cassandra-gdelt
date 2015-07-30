@@ -140,11 +140,7 @@ object GdeltCaseClass2Importer extends App with LocalConnector {
     sys.exit(0)
   }
 
-  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), ',')
-
-  // Skip over header
-  reader.readNext
-
+  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), '\t')
   val gdeltIter = new GdeltReader(reader)
 
   // Parse each line into a case class

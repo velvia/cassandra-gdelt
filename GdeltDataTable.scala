@@ -95,11 +95,7 @@ object GdeltDataTableImporter extends App with LocalConnector {
     sys.exit(0)
   }
 
-  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), ',')
-
-  // Skip over header
-  reader.readNext
-
+  val reader = new CSVReader(new BufferedReader(new FileReader(gdeltFilePath)), '\t')
   val lineIter = new LineReader(reader)
 
   // Parse each line into a case class

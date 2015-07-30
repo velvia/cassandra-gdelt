@@ -16,5 +16,6 @@ libraryDependencies ++= Seq(
   // "org.capnproto"         % "runtime"           % "0.1.0",
   "org.velvia.filo"      %% "filo-scala"        % "0.1.3",
   "com.websudos"         %% "phantom-dsl"       % phantomVersion,
-  "com.websudos"         %% "phantom-zookeeper" % phantomVersion
+  "com.websudos"         %% "phantom-zookeeper" % phantomVersion exclude(
+                            "com.twitter", "finagle-zookeeper_2.10")
 )

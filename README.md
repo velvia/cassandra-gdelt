@@ -4,7 +4,9 @@ Just a simple test of different Cassandra layouts and their impact on the query 
 
 ### Setup
 
-GDELT dataset, 1979-1984, 4,037,539 records, 60 columns.
+[GDELT dataset](http://data.gdeltproject.org/events/index.html), 1979-1984, 4,037,539 records, 57 columns* (There are actually 60 columns, but the last 3 columns are not populated for that date range)
+
+(NOTE: the current code is designed only to parse data from the link above, which is TAB-delimited, and does NOT have a header row)
 
 - Local MacBook Pro,  2.3GHz Core i7, 16GB RAM, SSD
 - Cassandra 2.1.6, installed locally with one node using CCM

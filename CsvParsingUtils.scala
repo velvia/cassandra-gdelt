@@ -3,11 +3,10 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import scala.util.Try
 
-// Unfortunately had to keep the old stuff around
 object CsvParsingUtils {
   def convertOptStr(x: String): Option[String] = if (x.isEmpty) None else Some(x)
 
-  val formatter = DateTimeFormat.forPattern("dd/mm/yy hh:mm:ss aa")
+  val formatter = DateTimeFormat.forPattern("yyyymmdd")
   def convertDT(x: String): DateTime = DateTime.parse(x, formatter)
 
   def convertOptInt(x: String): Option[Int] = Try(x.toInt).toOption
@@ -36,6 +35,14 @@ object CsvParsingUtils {
             convertOptStr(line(index + 6)),
             convertOptStr(line(fullLoc))
            )
+
+  def make60long(in: Array[String]): Array[String] = {
+    if (in.size >= 60) {
+      in
+    } else {
+      in ++ Array.fill(60 - in.size)("")
+    }
+  }
 }
 
 class GdeltReader(reader: CSVReader) extends Iterator[GdeltModel] {
@@ -43,7 +50,7 @@ class GdeltReader(reader: CSVReader) extends Iterator[GdeltModel] {
 
   var curLine: Array[String] = null
   def hasNext: Boolean = {
-    curLine = reader.readNext
+    curLine = make60long(reader.readNext)
     curLine != null
   }
 
@@ -76,7 +83,7 @@ class GdeltReader(reader: CSVReader) extends Iterator[GdeltModel] {
 class LineReader(reader: CSVReader) extends Iterator[Array[String]] {
   var curLine: Array[String] = null
   def hasNext: Boolean = {
-    curLine = reader.readNext
+    curLine = CsvParsingUtils.make60long(reader.readNext)
     curLine != null
   }
   def next = curLine
