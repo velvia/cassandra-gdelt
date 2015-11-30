@@ -44,6 +44,18 @@ Space taken up by all records: 1.6GB
 
 This does improve the read times, and we can see that somehow it takes up less space on disk as well - probably the result of compression (though logically, wide rows takes up more space uncompressed due to compound column names).
 
+### COMPACT STORAGE
+
+COMPACT STORAGE is the old Cassandra 0.x - 1.x way of storing things - write your record as a blob of your choice (JSON, Protobuf, etc.) and Cassandra writes it as a single cell (physical row, column, blob).  It is not supposed to be supported going forward.  You need to parse the blob yourself, and the entire blob must be read.  If you use Protobuf or other binary format, then CQLSH won't show you the contents (in this case we are using a trick and joining the text fields together using a special \001 character, which shows up in a different color).  Writes are fast, but reads are still much slower than columnar layout.
+
+Disk space: 260M
+
+| What                | Time     | Records/sec   |
+| :------------------ | :------- | :------------ |
+| Ingestion from CSV  | 78.6 s   | 52877 rec/s    |
+| Read every column   | 81.8 s    | 50850 rec/s   |
+| Read 1 col (monthYear) | 81.8 s | 50850 rec/s   |
+
 ### Columnar Layout
 
 ```sql
@@ -74,7 +86,7 @@ Space taken up by records:  337MB .... !!!
 
 The speedup and compactness is shocking.
 * On ingest - roughly 20-40x faster and 5x less disk space (of course this is from CSV with essentially no primary key, append only, probably not realistic)
-* On reads - 42x to 59x faster for reads of all columns, and 1526 - 2190x faster for read of a single column
+* On reads - 42x to 59x faster for reads of all columns, and 355 - 2190x faster for read of a single column
     - Granted, the speedup is for parsing an integer column, which is the most compact and benefits the most from efficient I/O; parsing a string column will not be quite as fast (though dictionary-encoded columns are very fast in deserialization)
 * Dictionary encoding saves a huge amount of space, cutting the actual storage
 space to one-third of the columnar one, both uncompressed and compressed. (sorry results without dictionary encoding are not available since a code change is needed to test that out)
