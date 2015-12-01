@@ -98,5 +98,14 @@ object GdeltCompactQuery extends App with LocalConnector {
     Await.result(f, 5000 seconds)
   }
   println(s".... got count of $result in $elapsed seconds")
+
+  // Just to see if Cassandra can optimize reads of only partition keys
+  println("Querying only (idPrefix) ...")
+  val (result2, elapsed2) = GdeltCompact.elapsed {
+    val f = GdeltCompact.select(_.idPrefix).
+              fetchEnumerator run (Iteratee.fold(0) { (acc, elt: Any) => acc + 1 })
+    Await.result(f, 5000 seconds)
+  }
+  println(s".... got count of $result2 in $elapsed2 seconds")
 }
 
