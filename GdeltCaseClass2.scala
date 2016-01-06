@@ -1,7 +1,8 @@
 /*
  * Represents each Gdelt record as a Scala case class.
- * Sharded so the clustering key is the globalEventId, and the partition key is the first
- * part of the globalEventId, so there are much less rows for horizontal efficiency.
+ * Sharded so the clustering key is the globalEventId, and the partition key is the
+ * monthyear, so there are much less rows for horizontal efficiency, and it is easy to look
+ * things up by monthyear.
  * Also the names of the columns are shortened to reduce space used for each column key.
  *
  * Note: This is not a workable model for a large number of tables/datasets, or
@@ -22,11 +23,12 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 sealed class GdeltRecord2 extends GdeltRecordBase[GdeltRecord2] {
-  object idPrefix extends StringColumn(this) with PartitionKey[String]
+  object monthYear extends IntColumn(this) with PartitionKey[Int]
   object globalEventId extends StringColumn(this) with PrimaryKey[String]
 
   override def fromRow(row: Row): GdeltModel =
-    super.fromRow(row).copy(globalEventId = globalEventId(row))
+    super.fromRow(row).copy(globalEventId = globalEventId(row),
+                            monthYear = Some(monthYear(row)))
 }
 
 object GdeltRecord2 extends GdeltRecord2 with LocalConnector {
@@ -40,10 +42,9 @@ object GdeltRecord2 extends GdeltRecord2 with LocalConnector {
     val batch = UnloggedBatchStatement()
     records.foreach { record =>
       // Wish didn't have to copy and paste this from GdeltCaseClass
-      batch.add(insert.value(_.idPrefix, (record.globalEventId.toLong / 10000).toString)
-                      .value(_.globalEventId, record.globalEventId)
+      batch.add(insert.value(_.globalEventId, record.globalEventId)
                       .value(_.sqlDate,       record.sqlDate)
-                      .value(_.monthYear,     record.monthYear)
+                      .value(_.monthYear,     record.monthYear.getOrElse(0))
                       .value(_.year,          record.year)
                       .value(_.fractionDate,  record.fractionDate)
 

@@ -65,7 +65,6 @@ case class GeoInfo(geoType: Option[String],
 trait GdeltRecordBase[G <: CassandraTable[G, GdeltModel]] extends CassandraTable[G, GdeltModel] {
   // Cols 0-4
   object sqlDate extends DateTimeColumn(this)
-  object monthYear extends OptionalIntColumn(this)
   object year extends OptionalIntColumn(this)
   object fractionDate extends OptionalDoubleColumn(this)
 
@@ -141,7 +140,7 @@ trait GdeltRecordBase[G <: CassandraTable[G, GdeltModel]] extends CassandraTable
   override def fromRow(row: Row): GdeltModel =
     GdeltModel("",   // to be filled in by extension classes
                sqlDate(row),
-               monthYear(row),
+               None,
                year(row),
                fractionDate(row),
                ActorInfo(a1Code(row), a1Name(row), a1CountryCode(row),
@@ -174,9 +173,11 @@ trait GdeltRecordBase[G <: CassandraTable[G, GdeltModel]] extends CassandraTable
 
 sealed class GdeltRecord extends GdeltRecordBase[GdeltRecord] {
   object globalEventId extends StringColumn(this) with PartitionKey[String]
+  object monthYear extends OptionalIntColumn(this)
 
   override def fromRow(row: Row): GdeltModel =
-    super.fromRow(row).copy(globalEventId = globalEventId(row))
+    super.fromRow(row).copy(globalEventId = globalEventId(row),
+                            monthYear = monthYear(row))
 }
 
 // NOTE: default CQL port is 9042

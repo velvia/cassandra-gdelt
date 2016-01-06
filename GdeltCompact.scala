@@ -1,6 +1,7 @@
 /**
  * A wide row layout like GdeltCaseClass2, but using COMPACT STORAGE and one text value for all fields,
  * as one would do in Cassandra 0.x - 1.x.
+ * Partition key used is MonthYear so one could quickly query for values using that.
  */
 
 import com.datastax.driver.core.Row
@@ -16,7 +17,7 @@ import scala.util.Try
 
 
 sealed class GdeltCompact extends CassandraTable[GdeltCompact, Array[String]] {
-  object idPrefix extends StringColumn(this) with PartitionKey[String]
+  object monthYear extends IntColumn(this) with PartitionKey[Int]
   object globalEventId extends StringColumn(this) with PrimaryKey[String]
   object record extends StringColumn(this)
 
@@ -30,7 +31,7 @@ object GdeltCompact extends GdeltCompact with LocalConnector {
   def insertRecords(records: Seq[Array[String]]): Future[ResultSet] = {
     val batch = records.foldLeft(UnloggedBatchStatement()) { case (batch, record) =>
       val globalId = record(0)
-      batch.add(insert.value(_.idPrefix,      (globalId.toLong / 10000).toString)
+      batch.add(insert.value(_.monthYear,     Try(record(2).toInt).getOrElse(0))
                       .value(_.globalEventId, globalId)
                       .value(_.record,        record.mkString("\001")))
     }
@@ -100,9 +101,9 @@ object GdeltCompactQuery extends App with LocalConnector {
   println(s".... got count of $result in $elapsed seconds")
 
   // Just to see if Cassandra can optimize reads of only partition keys
-  println("Querying only (idPrefix) ...")
+  println("Querying only (monthYear) ...")
   val (result2, elapsed2) = GdeltCompact.elapsed {
-    val f = GdeltCompact.select(_.idPrefix).
+    val f = GdeltCompact.select(_.monthYear).
               fetchEnumerator run (Iteratee.fold(0) { (acc, elt: Any) => acc + 1 })
     Await.result(f, 5000 seconds)
   }

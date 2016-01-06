@@ -22,7 +22,7 @@ This is a simple layout with one primary key, so one physical row per record.  O
 
 LZ4 disk compression is enabled.
 
-Space taken up by all records: 2.7GB
+Space taken up by all records: 1.9GB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
@@ -34,15 +34,17 @@ Space taken up by all records: 2.7GB
 
 This is an improvement on GdeltCaseClass, with use of both a partition key which is a simple grouping of the primary keys, and a clustering key, to effect wide rows for faster linear reads from disk.  In addition, the names of the columns have been shortened to use up less disk space.
 
-Space taken up by all records: 1.6GB
+Space taken up by all records: 2.2GB
 
 | What                | Time     | Records/sec   |
 | :------------------ | :------- | :------------ |
-| Ingestion from CSV  | 3897 s   | 1034 rec/s    |
-| Read every column   | 365 s    | 11044 rec/s   |
-| Read 1 col (monthYear) | 351 s | 11474 rec/s   |
+| Ingestion from CSV  | 3190 s   | 1300 rec/s    |
+| Read every column   | 941 s    | 4417 rec/s   |
+| Read 1 col (monthYear) | 707 s | 5880 rec/s   |
 
-This does improve the read times, and we can see that somehow it takes up less space on disk as well - probably the result of compression (though logically, wide rows takes up more space uncompressed due to compound column names).
+Oh no, what happened?  It seems it is slower to query, and it takes up more space on disk as well (logically, wide rows takes up more space uncompressed due to compound column names).  This is actually not entirely surprising, because reading only one column from such a layout, due to the way Cassandra lays out its data, essentially means having to scan all the data in a partition, and using clustering keys is inefficient because of how Cassandra prefixes clustering keys to the column names.  With the skinny layout, Cassandra is actually able to skip part of the row when reading.
+
+However, let's say you were not scanning the whole table but instead had a WHERE clause to filter on your partition key.  In this case, this layout would be a huge win over the other one -- only data from one partition needs to be read.  Thus, pick a layout based on your needs.
 
 ### COMPACT STORAGE
 
@@ -75,7 +77,7 @@ This layout places values of the same column from different rows together, and a
 Dictionary encoding enabled for about 75% of column chunks
 (auto-detection with a 50% cardinality threshold for enabling dictionary encoding)
 
-Space taken up by records:  337MB .... !!!
+Space taken up by records:  266MB .... !!!
 (LZ4 Compressed SSTable size; uncompressed actual ByteBuffers are 918MB)
 
 | What                | Time     | Records/sec   |
@@ -85,7 +87,7 @@ Space taken up by records:  337MB .... !!!
 | Read 1 col (monthYear) | 0.23 s | **17.4 million rec/s**   |
 
 The speedup and compactness is shocking.
-* On ingest - roughly 20-40x faster and 5x less disk space (of course this is from CSV with essentially no primary key, append only, probably not realistic)
+* On ingest - roughly 20-35x faster and 7x less disk space (of course this is from CSV with essentially no primary key, append only, probably not realistic)
 * On reads - 42x to 59x faster for reads of all columns, and 355 - 2190x faster for read of a single column
     - Granted, the speedup is for parsing an integer column, which is the most compact and benefits the most from efficient I/O; parsing a string column will not be quite as fast (though dictionary-encoded columns are very fast in deserialization)
 * Dictionary encoding saves a huge amount of space, cutting the actual storage
@@ -115,3 +117,57 @@ Right now the above comparison is just for C*, LZ4 C* disk compression, using th
 - FlatBuffers vs Capt'n Proto
 
 Another good dataset to test against is NYC Taxi Trip data: http://www.andresmh.com/nyctaxitrips/.   There are two helper scripts: `split_csv.sh` helps break up a big CSV into smaller CSVs with header intact, and `socrata_pointify.sh` adds a point column from lat and long columns.
+
+## Spark on Cassandra
+
+The above can also be used to compare Spark on Cassandra reads.  First start up the spark shell, like this (we ensure there is only one thread for all tests for an even comparison):
+
+    bin/spark-shell \
+                  --packages com.datastax.spark:spark-cassandra-connector_2.10:1.4.0-M3 \
+                  --conf spark.cassandra.connection.host=127.0.0.1 --conf spark.cassandra.input.split.size_in_mb=256 \
+                  --conf spark.sql.shuffle.partitions=4 \
+                  --driver-memory 5G --master "local[1]"
+
+The split size is to ensure that the GDELT2 wide row table doesn't get too many splits when reading.  This is really tricky to configure by the way, as it is global but you will probably need different settings for different tables.
+
+To load a Cassandra table into a Spark DataFrame, do something like this:
+
+```scala
+val df = sqlContext.read.format("org.apache.spark.sql.cassandra").
+                    option("table", "gdelt2").
+                    option("keyspace", "test").load
+df.registerTempTable("gdelt")
+```
+
+Here are the queries used.  Query 1:
+
+    df.select(count("numarticles")).show
+
+Query 2:
+
+    sqlContext.sql("SELECT a1name, AVG(avgtone) AS tone FROM gdelt GROUP BY a1name ORDER BY tone DESC").show
+
+Query 3:
+
+    sqlContext.sql("SELECT AVG(avgtone), MIN(avgtone), MAX(avgtone) FROM gdelt WHERE monthyear=198012 ").show
+
+TODO: instructions for querying the COMPACT STORAGE table
+
+For testing Spark SQL cached tables, do the following:
+
+    sqlContext.cacheTable("gdelt")
+    sqlContext.sql("select avg(numarticles), avg(avgtone) from gdelt group by a1name").show
+
+NOTE: For any DataFrame DSL (Scala) queries, make sure to get back a new DataFrame after the `cacheTable` operation, like this: `val df1 = sqlContext.table("gdelt")`.  The cached DataFrame reference is not the same as the original!
+
+For FiloDB, the table is loaded just a tiny bit differently:
+
+    df = sqlContext.read.format("filodb.spark").option("dataset", "gdelt").load
+
+For Parquet, it is even more straightforward:
+
+    df = sqlContext.load("/path/to/my/1979-1984.parquet")
+
+For comparisons, I generated the Parquet file from one of the above Cassandra tables (not the COMPACT STORAGE one) by saving it out, like this:
+
+    df.save("/path/to/my/1979-1984.parquet")
