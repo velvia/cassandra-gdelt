@@ -149,7 +149,7 @@ Query 2:
 
 Query 3:
 
-    sqlContext.sql("SELECT AVG(avgtone), MIN(avgtone), MAX(avgtone) FROM gdelt WHERE monthyear=198012 ").show
+    sqlContext.sql("SELECT AVG(avgtone), MIN(avgtone), MAX(avgtone) FROM gdelt WHERE MonthYear = 198012").show
 
 TODO: instructions for querying the COMPACT STORAGE table
 
