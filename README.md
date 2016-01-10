@@ -162,7 +162,7 @@ NOTE: For any DataFrame DSL (Scala) queries, make sure to get back a new DataFra
 
 For FiloDB, the table is loaded just a tiny bit differently:
 
-    df = sqlContext.read.format("filodb.spark").option("dataset", "gdelt").load
+    df = sqlContext.read.format("filodb.spark").option("dataset", "gdelt").option("splits_per_node", "1").load
 
 For Parquet, it is even more straightforward:
 
