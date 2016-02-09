@@ -151,6 +151,8 @@ Query 3:
 
     sqlContext.sql("SELECT AVG(avgtone), MIN(avgtone), MAX(avgtone) FROM gdelt WHERE MonthYear = 198012").show
 
+NOTE: the above are for querying the Cassandra CQL tables, in which the code shortens column names for performance and storage compactness reasons.  For Parquet and FiloDB, use the regular, capitalized column names (`Actor1Name` instead of `a1name`, `AvgTone` instead of `avgtone`, etc.)
+
 TODO: instructions for querying the COMPACT STORAGE table
 
 For testing Spark SQL cached tables, do the following:
